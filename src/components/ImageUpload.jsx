@@ -1,66 +1,61 @@
-import React, {Component} from 'react';
-import {storage} from '../firebase';
+import React, { useState } from 'react';
+import { storage } from '../firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
-class ImageUpload extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      image: null,
-      url: '',
-      progress: 0
-    }
-    this.handleChange = this
-      .handleChange
-      .bind(this);
-      this.handleUpload = this.handleUpload.bind(this);
-  }
-  handleChange = e => {
+const ImageUpload = () => {
+  const [image, setImage] = useState(null);
+  const [url, setUrl] = useState("");
+  const [progress, setProgress] = useState(0);
+
+  const handleChange = e => {
     if (e.target.files[0]) {
-      const image = e.target.files[0];
-      this.setState(() => ({image}));
+      setImage(e.target.files[0]);
     }
-  }
-  handleUpload = () => {
-      const {image} = this.state;
-      const uploadTask = storage.ref(`images/${image.name}`).put(image);
-      uploadTask.on('state_changed', 
-      (snapshot) => {
-        // progrss function ....
-        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-        this.setState({progress});
-      }, 
-      (error) => {
-           // error function ....
+  };
+
+  const handleUpload = () => {
+    if (!image) return;
+    const storageRef = ref(storage, `images/${image.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, image);
+
+    uploadTask.on(
+      "state_changed",
+      snapshot => {
+        const progress = Math.round(
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+        );
+        setProgress(progress);
+      },
+      error => {
         console.log(error);
-      }, 
-    () => {
-        // complete function ....
-        storage.ref('images').child(image.name).getDownloadURL().then(url => {
-            console.log(url);
-            this.setState({url});
-        })
-    });
-  }
-  render() {
-    const style = {
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center'
-    };
-    return (
-      <div style={style}>
-      <progress value={this.state.progress} max="100"/>
-      <br/>
-        <h1>UPLOAD IMAGE TO FIREBASE</h1>
-        <input type="file" onChange={this.handleChange}/>
-        <button onClick={this.handleUpload}>Upload</button>
-        <br/>
-        <img src={this.state.url || 'http://via.placeholder.com/400x300'} alt="Uploaded images" height="300" width="400"/>
-      </div>
-    )
-  }
-}
+      },
+      () => {
+        getDownloadURL(uploadTask.snapshot.ref).then(downloadURL => {
+          setUrl(downloadURL);
+        });
+      }
+    );
+  };
+
+  const style = {
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center'
+  };
+
+  return (
+    <div style={style}>
+      <progress value={progress} max="100" />
+      <br />
+      <h1>UPLOAD IMAGE TO FIREBASE</h1>
+      <input type="file" onChange={handleChange} />
+      <button onClick={handleUpload}>Upload</button>
+      <br />
+      <img src={url || 'http://via.placeholder.com/400x300'} alt="Uploaded images" height="300" width="400" />
+    </div>
+  );
+};
 
 export default ImageUpload;
