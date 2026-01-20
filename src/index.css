@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply antialiased bg-slate-950 text-slate-100 selection:bg-rose-500/30;
+    }
+}
+
+.glass-nav {
+    @apply bg-slate-950/50 backdrop-blur-2xl border-b border-white/5 shadow-2xl;
+}
+
+.gallery-card {
+    @apply relative overflow-hidden rounded-[2rem] bg-slate-900 border border-white/5 group cursor-zoom-in;
+}
