@@ -1,17 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+    --color-vault-rose: #f43f5e;
+}
 
 @layer base {
     body {
-        @apply antialiased bg-slate-950 text-slate-100 selection:bg-rose-500/30;
+        @apply bg-slate-950 text-slate-100 antialiased selection:bg-rose-500/30;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
 }
 
-.glass-nav {
-    @apply bg-slate-950/50 backdrop-blur-2xl border-b border-white/5 shadow-2xl;
-}
+@layer components {
+    .glass-nav {
+        @apply bg-slate-950/80 border-b border-white/5 backdrop-blur-xl;
+    }
 
-.gallery-card {
-    @apply relative overflow-hidden rounded-[2rem] bg-slate-900 border border-white/5 cursor-zoom-in;
+    .gallery-card {
+        @apply relative aspect-[4/5] overflow-hidden rounded-[2.5rem] bg-white/5 border border-white/10 cursor-pointer;
+    }
 }

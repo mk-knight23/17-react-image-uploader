@@ -177,7 +177,7 @@ function App() {
 
             {/* Footer */}
             <footer className="py-20 border-t border-white/5 text-center mt-auto">
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.5em]">© 2024 MK_VISUAL_VAULT • 17/30 DONE</p>
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.5em]">© 2026 VISUAL_VAULT // MK_STUDIO • 17/30 DONE</p>
             </footer>
         </div>
     );
