@@ -21,6 +21,9 @@ This application features a vibrant **"Playground/Experimental"** design system:
 | **Category Pills** | Filter badges with gradient active states |
 | **Lightbox Modal** | Full-screen preview with smooth animations |
 | **Stats Dashboard** | Animated stat cards with icon indicators |
+| **Drag & Drop Upload** | Drop files with visual feedback |
+| **Upload Preview** | Preview before adding to gallery |
+| **File Validation** | Image type and size limits |
 | **AI Enhancement CTA** | Promotional section with animated background |
 
 ## Tech Stack
@@ -117,6 +120,13 @@ This project is configured for deployment on three platforms:
 | **Netlify** | https://40-tool-react-image-uploader.netlify.app/ |
 
 ---
+
+## Limitations
+
+- **Client-side only**: Images stored in memory only, no backend persistence (intentionally not solved — demo tool)
+- **No AI Features**: AI enhancement is a mock feature (intentionally not solved — keeps tool simple)
+- **No User Accounts**: Gallery is session-based (intentionally not solved)
+- **File Size**: Limited to 10MB per image
 
 **Theme:** Playground/Experimental
 **License:** MIT
