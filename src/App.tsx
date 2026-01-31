@@ -84,7 +84,56 @@ function App() {
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [filter, setFilter] = useState('All');
   const [images, setImages] = useState<GalleryImage[]>(IMAGES);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setUploadPreview(result);
+      setTimeout(() => {
+        const newImage: GalleryImage = {
+          id: Date.now(),
+          url: result,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          category: 'Art',
+          size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+          liked: false
+        };
+        setImages(prev => [newImage, ...prev]);
+        setUploadPreview(null);
+      }, 1500);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
   const filteredImages = filter === 'All' ? images : images.filter(img => img.category === filter);
 
@@ -142,7 +191,7 @@ function App() {
                 <Plus size={20} />
                 <span className="hidden sm:inline">Upload</span>
               </button>
-              <input type="file" ref={fileInputRef} className="hidden" />
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e.target.files)} />
             </div>
           </div>
         </div>
@@ -175,26 +224,45 @@ function App() {
 
         {/* Upload Zone */}
         <section className="mb-12">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="upload-zone cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div className="space-y-6">
-              <div className="w-24 h-24 mx-auto bg-gradient-to-br from-play-purple/20 to-play-pink/20 rounded-3xl flex items-center justify-center animate-float">
-                <Upload className="w-12 h-12 text-play-purple" />
+          {uploadPreview ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="upload-zone p-8">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <img src={uploadPreview} alt="Preview" className="w-full md:w-1/3 h-48 object-cover rounded-2xl" />
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-2xl font-black gradient-text mb-2">Uploading...</h3>
+                  <div className="h-3 bg-gray-700 rounded-full overflow-hidden mt-4">
+                    <motion.div className="h-full bg-gradient-to-r from-play-purple to-play-pink" animate={{ width: ['0%', '100%'] }} transition={{ duration: 1.5, ease: 'easeInOut' }} />
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-3xl font-black gradient-text mb-2">Drop it like it's hot!</h3>
-                <p className="text-gray-400">Supports PNG, JPG, WebP up to 10MB</p>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`upload-zone cursor-pointer transition-all ${isDragging ? 'border-play-purple bg-play-purple/10' : ''}`}
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <div className="space-y-6">
+                <div className={`w-24 h-24 mx-auto bg-gradient-to-br from-play-purple/20 to-play-pink/20 rounded-3xl flex items-center justify-center animate-float transition-all ${isDragging ? 'scale-110' : ''}`}>
+                  <Upload className="w-12 h-12 text-play-purple" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black gradient-text mb-2">
+                    {isDragging ? "Drop it!" : "Drop it like it's hot!"}
+                  </h3>
+                  <p className="text-gray-400">Supports PNG, JPG, WebP up to 10MB</p>
+                </div>
+                <button className="btn-play-secondary">
+                  <Flame className="w-5 h-5 inline mr-2" />
+                  Fire Up the Upload
+                </button>
               </div>
-              <button className="btn-play-secondary">
-                <Flame className="w-5 h-5 inline mr-2" />
-                Fire Up the Upload
-              </button>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
         </section>
 
         {/* Category Filter */}
@@ -219,7 +287,13 @@ function App() {
 
         {/* Gallery Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredImages.map((img, idx) => (
+          {filteredImages.length === 0 ? (
+            <div className="col-span-full py-20 text-center">
+              <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-gray-400 mb-2">No images found</h3>
+              <p className="text-gray-500">Try a different category or upload your own</p>
+            </div>
+          ) : filteredImages.map((img, idx) => (
             <motion.div
               key={img.id}
               initial={{ opacity: 0, scale: 0.9 }}
