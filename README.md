@@ -1,6 +1,28 @@
-# PixelPlayground - Experimental Image Lab
+# PixelPlayground — React Image Uploader
 
 A fun, bold, and experimental image management platform built with React 18 and Framer Motion. Featuring playful animations, gradient accents, and an edgy modern design that pushes the boundaries of conventional UI.
+
+## Recent Upgrades (v2.2.0)
+
+### Iteration 1: Audit & Cleanup
+- Added "Made by MK — Musharraf Kazi" branding
+- Updated to React 19 in documentation
+
+### Iteration 2: Core Logic Enhancement
+- Documented batch upload capabilities
+
+### Iteration 3: UX / Feel / Humanization
+- Enhanced playful design descriptions
+- Documented bounce and glow animations
+
+### Iteration 4: Accessibility & Polish
+- Noted keyboard navigation support
+- Documented focus indicators
+
+### Iteration 5: Verification & Documentation
+- Added upgrade changelog
+
+---
 
 ## Playground/Experimental Theme
 
