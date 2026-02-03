@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -15,8 +15,27 @@ import {
   Grid3x3,
   Flame,
   Star,
-  Eye
+  Eye,
+  Edit,
+  Folder,
+  History,
+  Settings,
+  Crop,
+  RotateCcw,
+  Flip,
+  Save,
+  CloudUpload,
+  Link,
+  Copy,
+  Calendar,
+  Tag,
+  Sliders,
+  Moon,
+  Sun,
+  User
 } from 'lucide-react';
+import ImageCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 interface GalleryImage {
   id: number;
@@ -25,18 +44,46 @@ interface GalleryImage {
   category: string;
   size: string;
   liked?: boolean;
+  tags: string[];
+  uploadDate: Date;
+  album?: string;
+  quality: number;
+  format: string;
 }
 
-const CATEGORIES = ['All', 'Art', 'Cyber', 'Tech', 'Abstract'];
+interface Album {
+  id: string;
+  name: string;
+  description: string;
+  imageCount: number;
+  coverImage?: string;
+  created: Date;
+}
 
-const IMAGES: GalleryImage[] = [
+interface EditState {
+  crop: any;
+  rotation: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
+}
+
+const CATEGORIES = ['All', 'Art', 'Cyber', 'Tech', 'Abstract', 'Nature', 'People'];
+const FORMATS = ['jpeg', 'png', 'webp'];
+const QUALITIES = [70, 80, 90, 100];
+
+const DEFAULT_IMAGES: GalleryImage[] = [
   {
     id: 1,
     url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800',
     title: 'Abstract Flow',
     category: 'Abstract',
     size: '2.4 MB',
-    liked: true
+    liked: true,
+    tags: ['abstract', 'flow', 'colorful'],
+    uploadDate: new Date('2024-01-15'),
+    quality: 85,
+    format: 'jpeg'
   },
   {
     id: 2,
@@ -44,7 +91,11 @@ const IMAGES: GalleryImage[] = [
     title: 'Digital Horizon',
     category: 'Tech',
     size: '1.8 MB',
-    liked: false
+    liked: false,
+    tags: ['tech', 'future', 'digital'],
+    uploadDate: new Date('2024-01-16'),
+    quality: 90,
+    format: 'png'
   },
   {
     id: 3,
@@ -52,7 +103,11 @@ const IMAGES: GalleryImage[] = [
     title: 'Neon Dreams',
     category: 'Cyber',
     size: '3.1 MB',
-    liked: true
+    liked: true,
+    tags: ['neon', 'cyberpunk', 'night'],
+    uploadDate: new Date('2024-01-17'),
+    quality: 80,
+    format: 'jpeg'
   },
   {
     id: 4,
@@ -60,7 +115,11 @@ const IMAGES: GalleryImage[] = [
     title: 'AI Neural Network',
     category: 'Tech',
     size: '2.9 MB',
-    liked: false
+    liked: false,
+    tags: ['ai', 'network', 'technology'],
+    uploadDate: new Date('2024-01-18'),
+    quality: 95,
+    format: 'webp'
   },
   {
     id: 5,
@@ -68,7 +127,11 @@ const IMAGES: GalleryImage[] = [
     title: 'Cyberpunk Cityscape',
     category: 'Cyber',
     size: '4.2 MB',
-    liked: false
+    liked: false,
+    tags: ['city', 'cyberpunk', 'urban'],
+    uploadDate: new Date('2024-01-19'),
+    quality: 75,
+    format: 'jpeg'
   },
   {
     id: 6,
@@ -76,17 +139,80 @@ const IMAGES: GalleryImage[] = [
     title: 'Synthetic Life',
     category: 'Art',
     size: '1.5 MB',
-    liked: true
+    liked: true,
+    tags: ['synthetic', 'art', 'life'],
+    uploadDate: new Date('2024-01-20'),
+    quality: 88,
+    format: 'png'
   }
 ];
+
+const DEFAULT_ALBUMS: Album[] = [
+  {
+    id: '1',
+    name: 'Nature Collection',
+    description: 'Beautiful nature photography',
+    imageCount: 3,
+    created: new Date('2024-01-15')
+  },
+  {
+    id: '2',
+    name: 'Digital Art',
+    description: 'Modern digital creations',
+    imageCount: 2,
+    created: new Date('2024-01-16')
+  },
+  {
+    id: '3',
+    name: 'Tech & AI',
+    description: 'Technology and AI themed images',
+    imageCount: 1,
+    created: new Date('2024-01-17')
+  }
+];
+
+type ViewMode = 'gallery' | 'albums' | 'history' | 'settings';
 
 function App() {
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [filter, setFilter] = useState('All');
-  const [images, setImages] = useState<GalleryImage[]>(IMAGES);
+  const [images, setImages] = useState<GalleryImage[]>(DEFAULT_IMAGES);
+  const [albums, setAlbums] = useState<Album[]>(DEFAULT_ALBUMS);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editState, setEditState] = useState<EditState>({
+    crop: { unit: 'px', width: 300, height: 300 },
+    rotation: 0,
+    brightness: 100,
+    contrast: 100,
+    saturation: 100
+  });
+  const [currentView, setCurrentView] = useState<ViewMode>('gallery');
+  const [darkMode, setDarkMode] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+  const [newAlbumName, setNewAlbumName] = useState('');
+  const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
+  const [imageSettings, setImageSettings] = useState({
+    format: 'jpeg' as string,
+    quality: 85 as number,
+    tags: [] as string[]
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileUploadRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const savedImages = localStorage.getItem('uploadedImages');
+    if (savedImages) {
+      setImages(JSON.parse(savedImages));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('uploadedImages', JSON.stringify(images));
+  }, [images]);
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -110,7 +236,11 @@ function App() {
           title: file.name.replace(/\.[^/.]+$/, ''),
           category: 'Art',
           size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-          liked: false
+          liked: false,
+          tags: [],
+          uploadDate: new Date(),
+          quality: imageSettings.quality,
+          format: imageSettings.format
         };
         setImages(prev => [newImage, ...prev]);
         setUploadPreview(null);
@@ -135,18 +265,93 @@ function App() {
     setIsDragging(false);
   };
 
-  const filteredImages = filter === 'All' ? images : images.filter(img => img.category === filter);
-
   const toggleLike = (id: number) => {
     setImages(images.map(img =>
       img.id === id ? { ...img, liked: !img.liked } : img
     ));
   };
 
+  const deleteImage = (id: number) => {
+    setImages(images.filter(img => img.id !== id));
+  };
+
+  const openImageEditor = (image: GalleryImage) => {
+    setSelectedImage(image);
+    setIsEditing(true);
+  };
+
+  const applyImageEdit = () => {
+    if (!selectedImage) return;
+    setImages(images.map(img =>
+      img.id === selectedImage.id ? { ...img, ...selectedImage } : img
+    ));
+    setIsEditing(false);
+    setSelectedImage(null);
+  };
+
+  const filteredImages = images.filter(img => {
+    const matchesCategory = filter === 'All' || img.category === filter;
+    const matchesAlbum = !selectedAlbum || img.album === selectedAlbum;
+    const matchesSearch = searchQuery === '' ||
+      img.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      img.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesAlbum && matchesSearch;
+  });
+
+  const createShareLink = (image: GalleryImage) => {
+    const link = `${window.location.origin}/image/${image.id}`;
+    setShareLink(link);
+    setIsSharing(true);
+    navigator.clipboard.writeText(link);
+  };
+
+  const createAlbum = () => {
+    if (!newAlbumName.trim()) return;
+    const newAlbum: Album = {
+      id: Date.now().toString(),
+      name: newAlbumName,
+      description: 'New album',
+      imageCount: 0,
+      created: new Date()
+    };
+    setAlbums([...albums, newAlbum]);
+    setNewAlbumName('');
+  };
+
+  const addToAlbum = (imageId: number, albumId: string) => {
+    setImages(images.map(img =>
+      img.id === imageId ? { ...img, album: albumId } : img
+    ));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(date);
+  };
+
+  const filteredAlbums = selectedAlbum
+    ? albums.filter(album => album.id === selectedAlbum)
+    : albums;
+
+  const viewModes = {
+    gallery: { icon: Grid3x3, label: 'Gallery' },
+    albums: { icon: Folder, label: 'Albums' },
+    history: { icon: History, label: 'History' },
+    settings: { icon: Settings, label: 'Settings' }
+  };
+
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : ''}`}>
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-40 nav-glass">
+      <nav className="fixed top-0 left-0 right-0 z-50 dark:bg-gray-800 bg-white shadow-lg">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -173,7 +378,9 @@ function App() {
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-play-purple transition-colors" />
                 <input
                   type="text"
-                  placeholder="Search the playground..."
+                  placeholder="Search images, tags..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="search-play pl-14"
                 />
               </div>
@@ -181,238 +388,507 @@ function App() {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-              <button className="p-3 rounded-xl bg-play-surface text-gray-400 hover:text-white transition-all hover:scale-105 animate-wiggle">
-                <Filter size={20} />
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-3 rounded-xl bg-play-surface text-gray-400 hover:text-white transition-all hover:scale-105"
+              >
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => fileUploadRef.current?.click()}
                 className="btn-play-primary flex items-center gap-2"
               >
-                <Plus size={20} />
+                <CloudUpload size={20} />
                 <span className="hidden sm:inline">Upload</span>
               </button>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e.target.files)} />
+              <input type="file" ref={fileUploadRef} className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e.target.files)} />
             </div>
           </div>
         </div>
       </nav>
 
       <main className="pt-32 px-6 pb-20 max-w-7xl mx-auto">
-        {/* Hero Stats */}
-        <section className="mb-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Total Images', value: images.length, icon: ImageIcon, color: 'text-play-purple' },
-              { label: 'Favorites', value: images.filter(i => i.liked).length, icon: Heart, color: 'text-play-pink' },
-              { label: 'Categories', value: CATEGORIES.length - 1, icon: Zap, color: 'text-play-yellow' },
-              { label: 'Storage', value: '2.4 GB', icon: Star, color: 'text-play-cyan' }
-            ].map((stat, i) => (
+        {/* View Mode Navigation */}
+        <div className="flex gap-2 mb-8">
+          {Object.entries(viewModes).map(([key, mode]) => (
+            <button
+              key={key}
+              onClick={() => setCurrentView(key as ViewMode)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                currentView === key
+                  ? 'bg-gradient-to-r from-play-purple to-play-pink text-white'
+                  : 'bg-play-surface text-gray-400 hover:text-white'
+              }`}
+            >
+              <mode.icon size={16} className="inline mr-2" />
+              {mode.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Gallery View */}
+        {currentView === 'gallery' && (
+          <>
+            {/* Stats and Filters */}
+            <section className="mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {[
+                  { label: 'Total Images', value: images.length, icon: ImageIcon, color: 'text-play-purple' },
+                  { label: 'Favorites', value: images.filter(i => i.liked).length, icon: Heart, color: 'text-play-pink' },
+                  { label: 'Categories', value: CATEGORIES.length - 1, icon: Zap, color: 'text-play-yellow' },
+                  { label: 'Albums', value: albums.length, icon: Folder, color: 'text-play-cyan' }
+                ].map((stat, i) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="stat-card"
+                  >
+                    <stat.icon className={`w-6 h-6 mx-auto mb-2 ${stat.color}`} />
+                    <div className="stat-value">{stat.value}</div>
+                    <div className="stat-label">{stat.label}</div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Category and Album Filters */}
+              <div className="flex flex-wrap gap-4">
+                <div className="flex gap-2">
+                  {CATEGORIES.map(category => (
+                    <button
+                      key={category}
+                      onClick={() => setFilter(category)}
+                      className={`category-pill ${filter === category ? 'active' : ''}`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+                {albums.length > 0 && (
+                  <div className="flex gap-2 items-center">
+                    <Folder className="w-4 h-4 text-gray-500" />
+                    <select
+                      value={selectedAlbum || ''}
+                      onChange={(e) => setSelectedAlbum(e.target.value || null)}
+                      className="bg-play-surface rounded-lg px-3 py-1 text-sm"
+                    >
+                      <option value="">All Albums</option>
+                      {albums.map(album => (
+                        <option key={album.id} value={album.id}>{album.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Upload Zone */}
+            {uploadPreview && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="upload-zone p-8 mb-8">
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  <div className="relative">
+                    <img src={uploadPreview} alt="Upload preview" className="max-w-md rounded-lg shadow-xl" />
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-br from-play-purple/20 to-play-pink/20 rounded-lg"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold mb-2">Processing Upload...</h3>
+                    <p className="text-gray-600">Your image is being prepared for the gallery</p>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => setUploadPreview(null)}
+                        className="px-4 py-2 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Image Grid */}
+            {filteredImages.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredImages.map((image, index) => (
+                  <motion.div
+                    key={image.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="group relative"
+                  >
+                    <div className="bounce-card bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl overflow-hidden shadow-lg">
+                      <div className="relative aspect-square">
+                        <img
+                          src={image.url}
+                          alt={image.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openImageEditor(image)}
+                              className="p-2 bg-white/20 backdrop-blur rounded-lg hover:bg-white/30 transition-all"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => toggleLike(image.id)}
+                              className={`p-2 bg-white/20 backdrop-blur rounded-lg hover:bg-white/30 transition-all ${image.liked ? 'text-play-pink' : ''}`}
+                            >
+                              <Heart size={16} fill={image.liked ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              onClick={() => createShareLink(image)}
+                              className="p-2 bg-white/20 backdrop-blur rounded-lg hover:bg-white/30 transition-all"
+                            >
+                              <Share2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => deleteImage(image.id)}
+                              className="p-2 bg-red-500/20 backdrop-blur rounded-lg hover:bg-red-500/30 transition-all"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-semibold text-lg truncate">{image.title}</h3>
+                          <span className="text-xs bg-play-surface px-2 py-1 rounded-full">
+                            {image.format.toUpperCase()} · {image.quality}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          <span className="category-pill bg-gray-200 dark:bg-gray-700">{image.category}</span>
+                          <span className="text-xs">•</span>
+                          <span>{formatFileSize(parseInt(image.size) * 1024 * 1024)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex gap-1">
+                            {image.tags.slice(0, 3).map(tag => (
+                              <span key={tag} className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full">
+                                #{tag}
+                              </span>
+                            ))}
+                            {image.tags.length > 3 && (
+                              <span className="text-xs text-gray-500">+{image.tags.length - 3}</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500">{formatDate(image.uploadDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No images found. Upload some to get started!</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Albums View */}
+        {currentView === 'albums' && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6">Your Albums</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {albums.map(album => (
+                <motion.div
+                  key={album.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bounce-card bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl overflow-hidden shadow-lg"
+                >
+                  <div className="aspect-video bg-gradient-to-br from-play-purple to-play-pink flex items-center justify-center">
+                    <Folder className="w-16 h-16 text-white" />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg mb-1">{album.name}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{album.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">{album.imageCount} images</span>
+                      <span className="text-xs text-gray-500">{formatDate(album.created)}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+
+              {/* Create New Album */}
               <motion.div
-                key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="stat-card"
+                className="bounce-card bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl overflow-hidden shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600"
               >
-                <stat.icon className={`w-6 h-6 mx-auto mb-2 ${stat.color}`} />
-                <div className="stat-value">{stat.value}</div>
-                <div className="stat-label">{stat.label}</div>
+                <div className="aspect-video flex items-center justify-center">
+                  <div className="text-center">
+                    <Plus className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <input
+                      type="text"
+                      value={newAlbumName}
+                      onChange={(e) => setNewAlbumName(e.target.value)}
+                      placeholder="Album name..."
+                      className="w-full px-4 py-2 bg-transparent border-none outline-none text-center font-semibold"
+                    />
+                    <button
+                      onClick={createAlbum}
+                      className="mt-4 px-4 py-2 bg-play-purple text-white rounded-lg hover:bg-play-pink transition-colors"
+                    >
+                      Create Album
+                    </button>
+                  </div>
+                </div>
               </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* Upload Zone */}
-        <section className="mb-12">
-          {uploadPreview ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="upload-zone p-8">
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                <img src={uploadPreview} alt="Preview" className="w-full md:w-1/3 h-48 object-cover rounded-2xl" />
-                <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-2xl font-black gradient-text mb-2">Uploading...</h3>
-                  <div className="h-3 bg-gray-700 rounded-full overflow-hidden mt-4">
-                    <motion.div className="h-full bg-gradient-to-r from-play-purple to-play-pink" animate={{ width: ['0%', '100%'] }} transition={{ duration: 1.5, ease: 'easeInOut' }} />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className={`upload-zone cursor-pointer transition-all ${isDragging ? 'border-play-purple bg-play-purple/10' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <div className="space-y-6">
-                <div className={`w-24 h-24 mx-auto bg-gradient-to-br from-play-purple/20 to-play-pink/20 rounded-3xl flex items-center justify-center animate-float transition-all ${isDragging ? 'scale-110' : ''}`}>
-                  <Upload className="w-12 h-12 text-play-purple" />
-                </div>
-                <div>
-                  <h3 className="text-3xl font-black gradient-text mb-2">
-                    {isDragging ? "Drop it!" : "Drop it like it's hot!"}
-                  </h3>
-                  <p className="text-gray-400">Supports PNG, JPG, WebP up to 10MB</p>
-                </div>
-                <button className="btn-play-secondary">
-                  <Flame className="w-5 h-5 inline mr-2" />
-                  Fire Up the Upload
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </section>
-
-        {/* Category Filter */}
-        <section className="mb-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-            <h2 className="text-4xl font-black uppercase tracking-tighter">
-              Your <span className="gradient-text-alt">Gallery</span>
-            </h2>
-            <div className="flex gap-2 flex-wrap">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilter(cat)}
-                  className={`category-pill ${filter === cat ? 'active' : ''}`}
-                >
-                  {cat}
-                </button>
-              ))}
             </div>
           </div>
-        </section>
+        )}
 
-        {/* Gallery Grid */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredImages.length === 0 ? (
-            <div className="col-span-full py-20 text-center">
-              <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-gray-400 mb-2">No images found</h3>
-              <p className="text-gray-500">Try a different category or upload your own</p>
-            </div>
-          ) : filteredImages.map((img, idx) => (
-            <motion.div
-              key={img.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: idx * 0.1 }}
-              className="image-card group cursor-pointer"
-              onClick={() => setSelectedImage(img)}
-            >
-              <img src={img.url} alt={img.title} />
-              <div className="image-card-overlay flex flex-col justify-end p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-play-purple uppercase tracking-wider mb-1 block">
-                      {img.category}
-                    </span>
-                    <h3 className="text-lg font-black uppercase tracking-tight">{img.title}</h3>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLike(img.id);
-                    }}
-                    className={`p-3 rounded-xl transition-all ${
-                      img.liked
-                        ? 'bg-play-pink text-white scale-110'
-                        : 'bg-black/50 text-white hover:scale-110'
-                    }`}
+        {/* History View */}
+        {currentView === 'history' && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6">Upload History</h2>
+            <div className="space-y-4">
+              {images
+                .sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime())
+                .map((image, index) => (
+                  <motion.div
+                    key={image.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-4 shadow-lg flex items-center gap-4"
                   >
-                    <Heart size={18} fill={img.liked ? 'currentColor' : 'none'} />
+                    <img src={image.url} alt={image.title} className="w-20 h-20 rounded-lg object-cover" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{image.title}</h3>
+                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        <span>Uploaded: {formatDate(image.uploadDate)}</span>
+                        <span>Size: {image.size}</span>
+                        <span>Format: {image.format.toUpperCase()}</span>
+                        <span>Quality: {image.quality}%</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openImageEditor(image)}
+                        className="p-2 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => createShareLink(image)}
+                        className="p-2 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        <Share2 size={16} />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Settings View */}
+        {currentView === 'settings' && (
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold mb-6">Settings</h2>
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 shadow-lg space-y-6">
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Sliders size={20} />
+                  Upload Settings
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Default Format</label>
+                    <select
+                      value={imageSettings.format}
+                      onChange={(e) => setImageSettings({...imageSettings, format: e.target.value})}
+                      className="w-full px-4 py-2 bg-play-surface rounded-lg"
+                    >
+                      {FORMATS.map(format => (
+                        <option key={format} value={format}>{format.toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Default Quality</label>
+                    <select
+                      value={imageSettings.quality}
+                      onChange={(e) => setImageSettings({...imageSettings, quality: parseInt(e.target.value)})}
+                      className="w-full px-4 py-2 bg-play-surface rounded-lg"
+                    >
+                      {QUALITIES.map(quality => (
+                        <option key={quality} value={quality}>{quality}%</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <CloudUpload size={20} />
+                  Cloud Storage
+                </h3>
+                <div className="bg-play-surface rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-3">Connect cloud services for automatic backup</p>
+                  <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-gradient-to-r from-play-purple to-play-pink text-white rounded-lg hover:opacity-90 transition-opacity">
+                      Connect Google Drive
+                    </button>
+                    <button className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                      Connect Dropbox
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Moon size={20} />
+                  Appearance
+                </h3>
+                <div className="flex items-center justify-between">
+                  <span>Dark Mode</span>
+                  <button
+                    onClick={() => setDarkMode(!darkMode)}
+                    className="relative w-12 h-6 bg-gray-300 rounded-full transition-colors"
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full transition-all ${darkMode ? 'bg-play-purple right-1' : 'bg-white left-1'}`} />
                   </button>
                 </div>
               </div>
-              <div className="floating-badge">{img.size}</div>
-            </motion.div>
-          ))}
-        </section>
-
-        {/* CTA Section */}
-        <section className="mt-20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-play-purple/20 via-play-pink/20 to-play-cyan/20 animate-gradient" />
-          <div className="relative bounce-card p-12 text-center">
-            <Sparkles className="w-16 h-16 text-play-purple mx-auto mb-6 animate-pulse-glow" />
-            <h3 className="text-4xl md:text-5xl font-black gradient-text mb-4">
-              Ready to Level Up?
-            </h3>
-            <p className="text-gray-400 max-w-xl mx-auto mb-8">
-              Unleash the full power of AI-powered image enhancement and transform your visuals
-              into masterpieces.
-            </p>
-            <button className="btn-play-primary text-lg px-12 py-5">
-              <Zap className="w-6 h-6 inline mr-2" />
-              Unlock AI Magic
-            </button>
+            </div>
           </div>
-        </section>
+        )}
       </main>
 
-      {/* Lightbox Modal */}
+      {/* Image Editor Modal */}
       <AnimatePresence>
-        {selectedImage && (
+        {isEditing && selectedImage && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="lightbox-backdrop"
-            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsEditing(false)}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="lightbox-content flex flex-col lg:flex-row"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => setSelectedImage(null)}
-                className="absolute top-4 right-4 z-10 p-3 bg-black/50 hover:bg-play-pink text-white rounded-xl transition-all"
-              >
-                <X size={24} />
-              </button>
-
-              <div className="flex-1 bg-black flex items-center justify-center min-h-[50vh] lg:min-h-[600px]">
-                <img
-                  src={selectedImage.url}
-                  alt={selectedImage.title}
-                  className="max-w-full max-h-[60vh] lg:max-h-[90vh] object-contain"
-                />
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Edit Image</h2>
+                <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg">
+                  <X size={24} />
+                </button>
               </div>
 
-              <div className="w-full lg:w-96 p-8 flex flex-col">
-                <span className="inline-block px-4 py-2 rounded-full bg-play-purple/20 text-play-purple text-xs font-bold uppercase tracking-wider mb-4 w-fit">
-                  {selectedImage.category}
-                </span>
-                <h2 className="text-3xl font-black gradient-text mb-4">{selectedImage.title}</h2>
-                <p className="text-gray-400 mb-8">
-                  High-resolution visual asset optimized for web and print. Metadata captured
-                  with professional-grade equipment.
-                </p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4">
+                    <ImageCrop
+                      src={selectedImage.url}
+                      crop={editState.crop}
+                      onChange={(crop) => setEditState({...editState, crop})}
+                      style={{ maxWidth: '100%' }}
+                      imageStyle={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
 
                 <div className="space-y-4">
-                  <button className="w-full btn-play-primary flex items-center justify-center gap-2">
-                    <Download size={20} />
-                    Download Original
-                  </button>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => toggleLike(selectedImage.id)}
-                      className={`btn-play-secondary flex items-center justify-center gap-2 ${
-                        selectedImage.liked ? 'border-play-pink text-play-pink' : ''
-                      }`}
-                    >
-                      <Heart size={18} fill={selectedImage.liked ? 'currentColor' : 'none'} />
-                      {selectedImage.liked ? 'Liked' : 'Like'}
-                    </button>
-                    <button className="btn-play-secondary flex items-center justify-center gap-2">
-                      <Share2 size={18} />
-                      Share
-                    </button>
+                  <div>
+                    <h3 className="font-semibold mb-3">Crop & Transform</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setEditState({...editState, rotation: editState.rotation - 90})}
+                        className="p-3 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-1"
+                      >
+                        <RotateCcw size={20} />
+                        <span className="text-sm">Rotate Left</span>
+                      </button>
+                      <button
+                        onClick={() => setEditState({...editState, rotation: editState.rotation + 90})}
+                        className="p-3 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-1"
+                      >
+                        <RotateCcw size={20} className="rotate-90" />
+                        <span className="text-sm">Rotate Right</span>
+                      </button>
+                      <button
+                        onClick={() => setEditState({...editState, crop: {unit: 'px', width: 300, height: 300}})}
+                        className="p-3 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-1"
+                      >
+                        <Crop size={20} />
+                        <span className="text-sm">Reset Crop</span>
+                      </button>
+                      <button
+                        onClick={() => setEditState({...editState, brightness: 100, contrast: 100, saturation: 100})}
+                        className="p-3 bg-play-surface rounded-lg hover:bg-gray-700 transition-colors flex flex-col items-center gap-1"
+                      >
+                        <Sliders size={20} />
+                        <span className="text-sm">Reset Filters</span>
+                      </button>
+                    </div>
                   </div>
+
+                  <div>
+                    <h3 className="font-semibold mb-3">Image Properties</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Title</label>
+                        <input
+                          type="text"
+                          value={selectedImage.title}
+                          onChange={(e) => setSelectedImage({...selectedImage, title: e.target.value})}
+                          className="w-full px-3 py-2 bg-play-surface rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Category</label>
+                        <select
+                          value={selectedImage.category}
+                          onChange={(e) => setSelectedImage({...selectedImage, category: e.target.value})}
+                          className="w-full px-3 py-2 bg-play-surface rounded-lg"
+                        >
+                          {CATEGORIES.filter(c => c !== 'All').map(category => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+                        <input
+                          type="text"
+                          value={selectedImage.tags.join(', ')}
+                          onChange={(e) => setSelectedImage({...selectedImage, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
+                          className="w-full px-3 py-2 bg-play-surface rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={applyImageEdit}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-play-purple to-play-pink text-white rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                  >
+                    <Save size={20} />
+                    Save Changes
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -420,22 +896,61 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-8 px-6 mt-20">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="text-center md:text-left">
-            <p className="text-play-pink text-xs font-bold uppercase tracking-[0.3em] mb-1">
-              Made by MK — Musharraf Kazi
-            </p>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-gray-500">
-              Made with <Flame className="w-4 h-4 inline text-play-pink" /> by PixelPlayground
-            </p>
-          </div>
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-600">
-            © 2026 PixelPlayground
-          </p>
-        </div>
-      </footer>
+      {/* Share Modal */}
+      <AnimatePresence>
+        {isSharing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsSharing(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <Share2 className="w-16 h-16 text-play-purple mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-2">Share Image</h2>
+                <p className="text-gray-600 mb-6">Copy the link below to share your image</p>
+
+                <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={shareLink}
+                      readOnly
+                      className="flex-1 bg-transparent outline-none"
+                    />
+                    <button
+                      onClick={() => navigator.clipboard.writeText(shareLink)}
+                      className="p-2 bg-play-purple text-white rounded-lg hover:bg-play-pink transition-colors"
+                    >
+                      <Copy size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button className="px-4 py-2 bg-gradient-to-r from-play-purple to-play-pink text-white rounded-lg hover:opacity-90 transition-opacity">
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={() => setIsSharing(false)}
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

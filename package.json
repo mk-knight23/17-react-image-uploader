@@ -32,11 +32,18 @@
     "lucide-react": "^0.474.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "react-image-crop": "^11.0.10",
+    "fabric": "^5.3.0",
+    "react-colorful": "^5.6.1",
+    "react-dropzone": "^14.3.5",
+    "date-fns": "^4.1.0",
+    "fuse.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/fabric": "^5.3.6",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
